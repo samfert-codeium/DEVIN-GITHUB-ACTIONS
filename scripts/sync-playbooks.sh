@@ -9,19 +9,19 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 log_info() {
-    echo -e "${BLUE}ℹ${NC} $1"
+    echo -e "${BLUE}ℹ${NC} $1" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}✓${NC} $1"
+    echo -e "${GREEN}✓${NC} $1" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+    echo -e "${YELLOW}⚠${NC} $1" >&2
 }
 
 log_error() {
-    echo -e "${RED}✗${NC} $1"
+    echo -e "${RED}✗${NC} $1" >&2
 }
 
 api_call() {
@@ -252,9 +252,9 @@ sync_markdown_files() {
     while IFS= read -r file; do
         if [ -n "$file" ]; then
             if create_playbook "$file"; then
-                ((success_count++))
+                success_count=$((success_count + 1))
             else
-                ((failed_count++))
+                failed_count=$((failed_count + 1))
             fi
         fi
     done <<< "$md_files"
