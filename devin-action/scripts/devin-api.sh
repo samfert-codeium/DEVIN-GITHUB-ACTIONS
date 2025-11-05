@@ -29,59 +29,49 @@ PLAYBOOK_CONTENT="${23}"
 BASE_URL="https://api.devin.ai/v1"
 
 function create_session() {
-    local payload='{"prompt": "'"${PROMPT}"'"'
+    local payload_obj='{}'
+    
+    payload_obj=$(echo "$payload_obj" | jq --arg prompt "$PROMPT" '. + {prompt: $prompt}')
     
     if [ -n "$SNAPSHOT_ID" ]; then
-        payload+=', "snapshot_id": "'"${SNAPSHOT_ID}"'"'
+        payload_obj=$(echo "$payload_obj" | jq --arg snapshot_id "$SNAPSHOT_ID" '. + {snapshot_id: $snapshot_id}')
     fi
     
     if [ "$UNLISTED" = "true" ]; then
-        payload+=', "unlisted": true'
+        payload_obj=$(echo "$payload_obj" | jq '. + {unlisted: true}')
     fi
     
     if [ "$IDEMPOTENT" = "true" ]; then
-        payload+=', "idempotent": true'
+        payload_obj=$(echo "$payload_obj" | jq '. + {idempotent: true}')
     fi
     
     if [ -n "$MAX_ACU_LIMIT" ]; then
-        payload+=', "max_acu_limit": '"${MAX_ACU_LIMIT}"
+        payload_obj=$(echo "$payload_obj" | jq --argjson max_acu_limit "$MAX_ACU_LIMIT" '. + {max_acu_limit: $max_acu_limit}')
     fi
     
     if [ -n "$SECRET_IDS" ]; then
         IFS=',' read -ra SECRET_ARRAY <<< "$SECRET_IDS"
-        payload+=', "secret_ids": ['
-        for i in "${!SECRET_ARRAY[@]}"; do
-            [ $i -gt 0 ] && payload+=', '
-            payload+='"'"${SECRET_ARRAY[$i]}"'"'
-        done
-        payload+=']'
+        secret_ids_json=$(printf '%s\n' "${SECRET_ARRAY[@]}" | jq -R . | jq -s .)
+        payload_obj=$(echo "$payload_obj" | jq --argjson secret_ids "$secret_ids_json" '. + {secret_ids: $secret_ids}')
     fi
     
     if [ -n "$KNOWLEDGE_IDS" ]; then
         IFS=',' read -ra KNOWLEDGE_ARRAY <<< "$KNOWLEDGE_IDS"
-        payload+=', "knowledge_ids": ['
-        for i in "${!KNOWLEDGE_ARRAY[@]}"; do
-            [ $i -gt 0 ] && payload+=', '
-            payload+='"'"${KNOWLEDGE_ARRAY[$i]}"'"'
-        done
-        payload+=']'
+        knowledge_ids_json=$(printf '%s\n' "${KNOWLEDGE_ARRAY[@]}" | jq -R . | jq -s .)
+        payload_obj=$(echo "$payload_obj" | jq --argjson knowledge_ids "$knowledge_ids_json" '. + {knowledge_ids: $knowledge_ids}')
     fi
     
     if [ -n "$TAGS" ]; then
         IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
-        payload+=', "tags": ['
-        for i in "${!TAG_ARRAY[@]}"; do
-            [ $i -gt 0 ] && payload+=', '
-            payload+='"'"${TAG_ARRAY[$i]}"'"'
-        done
-        payload+=']'
+        tags_json=$(printf '%s\n' "${TAG_ARRAY[@]}" | jq -R . | jq -s .)
+        payload_obj=$(echo "$payload_obj" | jq --argjson tags "$tags_json" '. + {tags: $tags}')
     fi
     
     if [ -n "$TITLE" ]; then
-        payload+=', "title": "'"${TITLE}"'"'
+        payload_obj=$(echo "$payload_obj" | jq --arg title "$TITLE" '. + {title: $title}')
     fi
     
-    payload+='}'
+    local payload="$payload_obj"
     
     response=$(curl -s -X POST "${BASE_URL}/sessions" \
         -H "Authorization: Bearer ${API_KEY}" \
@@ -106,10 +96,12 @@ function send_message() {
         exit 1
     fi
     
+    local payload=$(jq -n --arg message "$MESSAGE" '{message: $message}')
+    
     response=$(curl -s -X POST "${BASE_URL}/sessions/${SESSION_ID}/message" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d '{"message": "'"${MESSAGE}"'"}')
+        -d "$payload")
     
     echo "${response}"
     echo "response=${response}" >> $GITHUB_OUTPUT
@@ -162,17 +154,13 @@ function update_tags() {
     fi
     
     IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
-    payload='{"tags": ['
-    for i in "${!TAG_ARRAY[@]}"; do
-        [ $i -gt 0 ] && payload+=', '
-        payload+='"'"${TAG_ARRAY[$i]}"'"'
-    done
-    payload+=']}'
+    tags_json=$(printf '%s\n' "${TAG_ARRAY[@]}" | jq -R . | jq -s .)
+    local payload=$(jq -n --argjson tags "$tags_json" '{tags: $tags}')
     
     response=$(curl -s -X PUT "${BASE_URL}/sessions/${SESSION_ID}/tags" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d "${payload}")
+        -d "$payload")
     
     echo "${response}"
     echo "response=${response}" >> $GITHUB_OUTPUT
@@ -192,10 +180,12 @@ function create_secret() {
         exit 1
     fi
     
+    local payload=$(jq -n --arg name "$SECRET_NAME" --arg value "$SECRET_VALUE" '{name: $name, value: $value}')
+    
     response=$(curl -s -X POST "${BASE_URL}/secrets" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d '{"name": "'"${SECRET_NAME}"'", "value": "'"${SECRET_VALUE}"'"}')
+        -d "$payload")
     
     echo "${response}"
     echo "response=${response}" >> $GITHUB_OUTPUT
@@ -228,10 +218,12 @@ function create_knowledge() {
         exit 1
     fi
     
+    local payload=$(jq -n --arg name "$KNOWLEDGE_NAME" --arg content "$KNOWLEDGE_CONTENT" '{name: $name, content: $content}')
+    
     response=$(curl -s -X POST "${BASE_URL}/knowledge" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d '{"name": "'"${KNOWLEDGE_NAME}"'", "content": "'"${KNOWLEDGE_CONTENT}"'"}')
+        -d "$payload")
     
     echo "${response}"
     echo "response=${response}" >> $GITHUB_OUTPUT
@@ -243,20 +235,19 @@ function update_knowledge() {
         exit 1
     fi
     
-    payload='{'
+    local payload_obj='{}'
     if [ -n "$KNOWLEDGE_NAME" ]; then
-        payload+='"name": "'"${KNOWLEDGE_NAME}"'"'
+        payload_obj=$(echo "$payload_obj" | jq --arg name "$KNOWLEDGE_NAME" '. + {name: $name}')
     fi
     if [ -n "$KNOWLEDGE_CONTENT" ]; then
-        [ -n "$KNOWLEDGE_NAME" ] && payload+=', '
-        payload+='"content": "'"${KNOWLEDGE_CONTENT}"'"'
+        payload_obj=$(echo "$payload_obj" | jq --arg content "$KNOWLEDGE_CONTENT" '. + {content: $content}')
     fi
-    payload+='}'
+    local payload="$payload_obj"
     
     response=$(curl -s -X PUT "${BASE_URL}/knowledge/${KNOWLEDGE_ID}" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d "${payload}")
+        -d "$payload")
     
     echo "${response}"
     echo "response=${response}" >> $GITHUB_OUTPUT
@@ -289,10 +280,12 @@ function create_playbook() {
         exit 1
     fi
     
+    local payload=$(jq -n --arg name "$PLAYBOOK_NAME" --arg content "$PLAYBOOK_CONTENT" '{name: $name, content: $content}')
+    
     response=$(curl -s -X POST "${BASE_URL}/playbooks" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d '{"name": "'"${PLAYBOOK_NAME}"'", "content": "'"${PLAYBOOK_CONTENT}"'"}')
+        -d "$payload")
     
     echo "${response}"
     echo "response=${response}" >> $GITHUB_OUTPUT
@@ -317,20 +310,19 @@ function update_playbook() {
         exit 1
     fi
     
-    payload='{'
+    local payload_obj='{}'
     if [ -n "$PLAYBOOK_NAME" ]; then
-        payload+='"name": "'"${PLAYBOOK_NAME}"'"'
+        payload_obj=$(echo "$payload_obj" | jq --arg name "$PLAYBOOK_NAME" '. + {name: $name}')
     fi
     if [ -n "$PLAYBOOK_CONTENT" ]; then
-        [ -n "$PLAYBOOK_NAME" ] && payload+=', '
-        payload+='"content": "'"${PLAYBOOK_CONTENT}"'"'
+        payload_obj=$(echo "$payload_obj" | jq --arg content "$PLAYBOOK_CONTENT" '. + {content: $content}')
     fi
-    payload+='}'
+    local payload="$payload_obj"
     
     response=$(curl -s -X PUT "${BASE_URL}/playbooks/${PLAYBOOK_ID}" \
         -H "Authorization: Bearer ${API_KEY}" \
         -H "Content-Type: application/json" \
-        -d "${payload}")
+        -d "$payload")
     
     echo "${response}"
     echo "response=${response}" >> $GITHUB_OUTPUT
