@@ -1,0 +1,151 @@
+name: 'Devin API Action'
+description: 'A GitHub Action to interact with the Devin API for creating and managing Devin sessions'
+author: 'Sam Fertig (@samfert-codeium)'
+
+branding:
+  icon: 'cpu'
+  color: 'blue'
+
+inputs:
+  action:
+    description: 'The API action to perform (create-session, send-message, get-session, list-sessions, upload-files, update-tags, list-secrets, create-secret, delete-secret, list-knowledge, create-knowledge, update-knowledge, delete-knowledge, list-playbooks, create-playbook, get-playbook, update-playbook, delete-playbook)'
+    required: true
+  
+  api-key:
+    description: 'Devin API key for authentication. Should be stored as a secret.'
+    required: true
+  
+  prompt:
+    description: 'Task description for Devin (required for create-session)'
+    required: false
+  
+  session-id:
+    description: 'Session ID (required for send-message, get-session, upload-files, update-tags)'
+    required: false
+  
+  message:
+    description: 'Message to send to Devin (required for send-message)'
+    required: false
+  
+  snapshot-id:
+    description: 'ID of a machine snapshot to use (optional for create-session)'
+    required: false
+  
+  unlisted:
+    description: 'Whether the session should be unlisted (optional for create-session)'
+    required: false
+    default: 'false'
+  
+  idempotent:
+    description: 'Enable idempotent session creation (optional for create-session)'
+    required: false
+    default: 'false'
+  
+  max-acu-limit:
+    description: 'Maximum ACU limit for the session (optional for create-session)'
+    required: false
+  
+  secret-ids:
+    description: 'Comma-separated list of secret IDs to use (optional for create-session)'
+    required: false
+  
+  knowledge-ids:
+    description: 'Comma-separated list of knowledge IDs to use (optional for create-session)'
+    required: false
+  
+  tags:
+    description: 'Comma-separated list of tags (for create-session or update-tags)'
+    required: false
+  
+  title:
+    description: 'Custom title for the session (optional for create-session)'
+    required: false
+  
+  file-path:
+    description: 'Path to file to upload (required for upload-files)'
+    required: false
+  
+  secret-id:
+    description: 'Secret ID (required for delete-secret)'
+    required: false
+  
+  secret-name:
+    description: 'Secret name (required for create-secret)'
+    required: false
+  
+  secret-value:
+    description: 'Secret value (required for create-secret)'
+    required: false
+  
+  knowledge-id:
+    description: 'Knowledge ID (required for update-knowledge, delete-knowledge)'
+    required: false
+  
+  knowledge-name:
+    description: 'Knowledge name (for create-knowledge, update-knowledge)'
+    required: false
+  
+  knowledge-content:
+    description: 'Knowledge content (for create-knowledge, update-knowledge)'
+    required: false
+  
+  playbook-id:
+    description: 'Playbook ID (required for get-playbook, update-playbook, delete-playbook)'
+    required: false
+  
+  playbook-name:
+    description: 'Playbook name (for create-playbook, update-playbook)'
+    required: false
+  
+  playbook-content:
+    description: 'Playbook content (for create-playbook, update-playbook)'
+    required: false
+
+outputs:
+  session-id:
+    description: 'The session ID (for create-session)'
+    value: ${{ steps.devin-api.outputs.session-id }}
+  
+  session-url:
+    description: 'The session URL (for create-session)'
+    value: ${{ steps.devin-api.outputs.session-url }}
+  
+  is-new-session:
+    description: 'Whether a new session was created (for create-session with idempotent=true)'
+    value: ${{ steps.devin-api.outputs.is-new-session }}
+  
+  response:
+    description: 'The full API response'
+    value: ${{ steps.devin-api.outputs.response }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Execute Devin API Action
+      id: devin-api
+      shell: bash
+      run: |
+        "${{ github.action_path }}/scripts/devin-api.sh" \
+          "${{ inputs.action }}" \
+          "${{ inputs.api-key }}" \
+          "${{ inputs.prompt }}" \
+          "${{ inputs.session-id }}" \
+          "${{ inputs.message }}" \
+          "${{ inputs.snapshot-id }}" \
+          "${{ inputs.unlisted }}" \
+          "${{ inputs.idempotent }}" \
+          "${{ inputs.max-acu-limit }}" \
+          "${{ inputs.secret-ids }}" \
+          "${{ inputs.knowledge-ids }}" \
+          "${{ inputs.tags }}" \
+          "${{ inputs.title }}" \
+          "${{ inputs.file-path }}" \
+          "${{ inputs.secret-id }}" \
+          "${{ inputs.secret-name }}" \
+          "${{ inputs.secret-value }}" \
+          "${{ inputs.knowledge-id }}" \
+          "${{ inputs.knowledge-name }}" \
+          "${{ inputs.knowledge-content }}" \
+          "${{ inputs.playbook-id }}" \
+          "${{ inputs.playbook-name }}" \
+          "${{ inputs.playbook-content }}"

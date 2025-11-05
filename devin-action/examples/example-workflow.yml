@@ -1,0 +1,42 @@
+name: Example Devin Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Task for Devin to perform'
+        required: true
+        default: 'Review the codebase and suggest improvements'
+
+jobs:
+  run-devin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Devin Session
+        uses: samfert-codeium/DEVIN-GITHUB-ACTIONS/devin-action@main
+        id: devin-session
+        with:
+          action: 'create-session'
+          api-key: ${{ secrets.DEVIN_API_KEY }}
+          prompt: ${{ github.event.inputs.task }}
+          title: 'GitHub Actions Session - ${{ github.run_number }}'
+          tags: 'github-actions,automated'
+
+      - name: Display Session Information
+        run: |
+          echo "Devin session created successfully!"
+          echo "Session ID: ${{ steps.devin-session.outputs.session-id }}"
+          echo "Session URL: ${{ steps.devin-session.outputs.session-url }}"
+          echo ""
+          echo "You can monitor the session at the URL above."
+
+      - name: Send Additional Context
+        uses: samfert-codeium/DEVIN-GITHUB-ACTIONS/devin-action@main
+        with:
+          action: 'send-message'
+          api-key: ${{ secrets.DEVIN_API_KEY }}
+          session-id: ${{ steps.devin-session.outputs.session-id }}
+          message: 'This session was triggered from GitHub Actions workflow run ${{ github.run_number }}'

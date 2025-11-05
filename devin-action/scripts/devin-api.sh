@@ -1,0 +1,412 @@
+#!/bin/bash
+
+set -e
+
+ACTION="$1"
+API_KEY="$2"
+PROMPT="$3"
+SESSION_ID="$4"
+MESSAGE="$5"
+SNAPSHOT_ID="$6"
+UNLISTED="$7"
+IDEMPOTENT="$8"
+MAX_ACU_LIMIT="$9"
+SECRET_IDS="${10}"
+KNOWLEDGE_IDS="${11}"
+TAGS="${12}"
+TITLE="${13}"
+FILE_PATH="${14}"
+SECRET_ID="${15}"
+SECRET_NAME="${16}"
+SECRET_VALUE="${17}"
+KNOWLEDGE_ID="${18}"
+KNOWLEDGE_NAME="${19}"
+KNOWLEDGE_CONTENT="${20}"
+PLAYBOOK_ID="${21}"
+PLAYBOOK_NAME="${22}"
+PLAYBOOK_CONTENT="${23}"
+
+BASE_URL="https://api.devin.ai/v1"
+
+function create_session() {
+    local payload='{"prompt": "'"${PROMPT}"'"'
+    
+    if [ -n "$SNAPSHOT_ID" ]; then
+        payload+=', "snapshot_id": "'"${SNAPSHOT_ID}"'"'
+    fi
+    
+    if [ "$UNLISTED" = "true" ]; then
+        payload+=', "unlisted": true'
+    fi
+    
+    if [ "$IDEMPOTENT" = "true" ]; then
+        payload+=', "idempotent": true'
+    fi
+    
+    if [ -n "$MAX_ACU_LIMIT" ]; then
+        payload+=', "max_acu_limit": '"${MAX_ACU_LIMIT}"
+    fi
+    
+    if [ -n "$SECRET_IDS" ]; then
+        IFS=',' read -ra SECRET_ARRAY <<< "$SECRET_IDS"
+        payload+=', "secret_ids": ['
+        for i in "${!SECRET_ARRAY[@]}"; do
+            [ $i -gt 0 ] && payload+=', '
+            payload+='"'"${SECRET_ARRAY[$i]}"'"'
+        done
+        payload+=']'
+    fi
+    
+    if [ -n "$KNOWLEDGE_IDS" ]; then
+        IFS=',' read -ra KNOWLEDGE_ARRAY <<< "$KNOWLEDGE_IDS"
+        payload+=', "knowledge_ids": ['
+        for i in "${!KNOWLEDGE_ARRAY[@]}"; do
+            [ $i -gt 0 ] && payload+=', '
+            payload+='"'"${KNOWLEDGE_ARRAY[$i]}"'"'
+        done
+        payload+=']'
+    fi
+    
+    if [ -n "$TAGS" ]; then
+        IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+        payload+=', "tags": ['
+        for i in "${!TAG_ARRAY[@]}"; do
+            [ $i -gt 0 ] && payload+=', '
+            payload+='"'"${TAG_ARRAY[$i]}"'"'
+        done
+        payload+=']'
+    fi
+    
+    if [ -n "$TITLE" ]; then
+        payload+=', "title": "'"${TITLE}"'"'
+    fi
+    
+    payload+='}'
+    
+    response=$(curl -s -X POST "${BASE_URL}/sessions" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "${payload}")
+    
+    echo "${response}"
+    
+    session_id=$(echo "${response}" | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+    session_url=$(echo "${response}" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
+    is_new=$(echo "${response}" | grep -o '"is_new_session":[^,}]*' | cut -d':' -f2)
+    
+    echo "session-id=${session_id}" >> $GITHUB_OUTPUT
+    echo "session-url=${session_url}" >> $GITHUB_OUTPUT
+    echo "is-new-session=${is_new}" >> $GITHUB_OUTPUT
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function send_message() {
+    if [ -z "$SESSION_ID" ] || [ -z "$MESSAGE" ]; then
+        echo "Error: session-id and message are required for send-message action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X POST "${BASE_URL}/sessions/${SESSION_ID}/message" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d '{"message": "'"${MESSAGE}"'"}')
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function get_session() {
+    if [ -z "$SESSION_ID" ]; then
+        echo "Error: session-id is required for get-session action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X GET "${BASE_URL}/sessions/${SESSION_ID}" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function list_sessions() {
+    response=$(curl -s -X GET "${BASE_URL}/sessions" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function upload_files() {
+    if [ -z "$SESSION_ID" ] || [ -z "$FILE_PATH" ]; then
+        echo "Error: session-id and file-path are required for upload-files action"
+        exit 1
+    fi
+    
+    if [ ! -f "$FILE_PATH" ]; then
+        echo "Error: File not found: ${FILE_PATH}"
+        exit 1
+    fi
+    
+    response=$(curl -s -X POST "${BASE_URL}/sessions/${SESSION_ID}/attachments" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -F "file=@${FILE_PATH}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function update_tags() {
+    if [ -z "$SESSION_ID" ] || [ -z "$TAGS" ]; then
+        echo "Error: session-id and tags are required for update-tags action"
+        exit 1
+    fi
+    
+    IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+    payload='{"tags": ['
+    for i in "${!TAG_ARRAY[@]}"; do
+        [ $i -gt 0 ] && payload+=', '
+        payload+='"'"${TAG_ARRAY[$i]}"'"'
+    done
+    payload+=']}'
+    
+    response=$(curl -s -X PUT "${BASE_URL}/sessions/${SESSION_ID}/tags" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "${payload}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function list_secrets() {
+    response=$(curl -s -X GET "${BASE_URL}/secrets" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function create_secret() {
+    if [ -z "$SECRET_NAME" ] || [ -z "$SECRET_VALUE" ]; then
+        echo "Error: secret-name and secret-value are required for create-secret action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X POST "${BASE_URL}/secrets" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d '{"name": "'"${SECRET_NAME}"'", "value": "'"${SECRET_VALUE}"'"}')
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function delete_secret() {
+    if [ -z "$SECRET_ID" ]; then
+        echo "Error: secret-id is required for delete-secret action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X DELETE "${BASE_URL}/secrets/${SECRET_ID}" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function list_knowledge() {
+    response=$(curl -s -X GET "${BASE_URL}/knowledge" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function create_knowledge() {
+    if [ -z "$KNOWLEDGE_NAME" ] || [ -z "$KNOWLEDGE_CONTENT" ]; then
+        echo "Error: knowledge-name and knowledge-content are required for create-knowledge action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X POST "${BASE_URL}/knowledge" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d '{"name": "'"${KNOWLEDGE_NAME}"'", "content": "'"${KNOWLEDGE_CONTENT}"'"}')
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function update_knowledge() {
+    if [ -z "$KNOWLEDGE_ID" ]; then
+        echo "Error: knowledge-id is required for update-knowledge action"
+        exit 1
+    fi
+    
+    payload='{'
+    if [ -n "$KNOWLEDGE_NAME" ]; then
+        payload+='"name": "'"${KNOWLEDGE_NAME}"'"'
+    fi
+    if [ -n "$KNOWLEDGE_CONTENT" ]; then
+        [ -n "$KNOWLEDGE_NAME" ] && payload+=', '
+        payload+='"content": "'"${KNOWLEDGE_CONTENT}"'"'
+    fi
+    payload+='}'
+    
+    response=$(curl -s -X PUT "${BASE_URL}/knowledge/${KNOWLEDGE_ID}" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "${payload}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function delete_knowledge() {
+    if [ -z "$KNOWLEDGE_ID" ]; then
+        echo "Error: knowledge-id is required for delete-knowledge action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X DELETE "${BASE_URL}/knowledge/${KNOWLEDGE_ID}" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function list_playbooks() {
+    response=$(curl -s -X GET "${BASE_URL}/playbooks" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function create_playbook() {
+    if [ -z "$PLAYBOOK_NAME" ] || [ -z "$PLAYBOOK_CONTENT" ]; then
+        echo "Error: playbook-name and playbook-content are required for create-playbook action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X POST "${BASE_URL}/playbooks" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d '{"name": "'"${PLAYBOOK_NAME}"'", "content": "'"${PLAYBOOK_CONTENT}"'"}')
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function get_playbook() {
+    if [ -z "$PLAYBOOK_ID" ]; then
+        echo "Error: playbook-id is required for get-playbook action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X GET "${BASE_URL}/playbooks/${PLAYBOOK_ID}" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function update_playbook() {
+    if [ -z "$PLAYBOOK_ID" ]; then
+        echo "Error: playbook-id is required for update-playbook action"
+        exit 1
+    fi
+    
+    payload='{'
+    if [ -n "$PLAYBOOK_NAME" ]; then
+        payload+='"name": "'"${PLAYBOOK_NAME}"'"'
+    fi
+    if [ -n "$PLAYBOOK_CONTENT" ]; then
+        [ -n "$PLAYBOOK_NAME" ] && payload+=', '
+        payload+='"content": "'"${PLAYBOOK_CONTENT}"'"'
+    fi
+    payload+='}'
+    
+    response=$(curl -s -X PUT "${BASE_URL}/playbooks/${PLAYBOOK_ID}" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "${payload}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+function delete_playbook() {
+    if [ -z "$PLAYBOOK_ID" ]; then
+        echo "Error: playbook-id is required for delete-playbook action"
+        exit 1
+    fi
+    
+    response=$(curl -s -X DELETE "${BASE_URL}/playbooks/${PLAYBOOK_ID}" \
+        -H "Authorization: Bearer ${API_KEY}")
+    
+    echo "${response}"
+    echo "response=${response}" >> $GITHUB_OUTPUT
+}
+
+case "$ACTION" in
+    create-session)
+        create_session
+        ;;
+    send-message)
+        send_message
+        ;;
+    get-session)
+        get_session
+        ;;
+    list-sessions)
+        list_sessions
+        ;;
+    upload-files)
+        upload_files
+        ;;
+    update-tags)
+        update_tags
+        ;;
+    list-secrets)
+        list_secrets
+        ;;
+    create-secret)
+        create_secret
+        ;;
+    delete-secret)
+        delete_secret
+        ;;
+    list-knowledge)
+        list_knowledge
+        ;;
+    create-knowledge)
+        create_knowledge
+        ;;
+    update-knowledge)
+        update_knowledge
+        ;;
+    delete-knowledge)
+        delete_knowledge
+        ;;
+    list-playbooks)
+        list_playbooks
+        ;;
+    create-playbook)
+        create_playbook
+        ;;
+    get-playbook)
+        get_playbook
+        ;;
+    update-playbook)
+        update_playbook
+        ;;
+    delete-playbook)
+        delete_playbook
+        ;;
+    *)
+        echo "Error: Unknown action '${ACTION}'"
+        echo "Valid actions: create-session, send-message, get-session, list-sessions, upload-files, update-tags, list-secrets, create-secret, delete-secret, list-knowledge, create-knowledge, update-knowledge, delete-knowledge, list-playbooks, create-playbook, get-playbook, update-playbook, delete-playbook"
+        exit 1
+        ;;
+esac
