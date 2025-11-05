@@ -1,0 +1,59 @@
+name: Test Action
+
+on:
+  push:
+    branches: [main, 'devin/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-dry-run:
+    name: Test Dry Run Mode
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test sync operation (dry run)
+        uses: ./
+        with:
+          devin-api-key: ${{ secrets.DEVIN_API_KEY || 'test-key' }}
+          directory: './test-playbooks'
+          dry-run: 'true'
+          recursive: 'true'
+  
+  test-validation:
+    name: Test Input Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test with missing API key (should fail)
+        id: test-fail
+        continue-on-error: true
+        uses: ./
+        with:
+          devin-api-key: ''
+          directory: './test-playbooks'
+      
+      - name: Verify failure
+        if: steps.test-fail.outcome != 'failure'
+        run: |
+          echo "Action should have failed with missing API key"
+          exit 1
+  
+  test-list:
+    name: Test List Operation (Dry Run)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test list operation
+        uses: ./
+        with:
+          devin-api-key: ${{ secrets.DEVIN_API_KEY || 'test-key' }}
+          operation: 'list'
+          dry-run: 'true'

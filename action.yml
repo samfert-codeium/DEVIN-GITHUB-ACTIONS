@@ -1,0 +1,132 @@
+name: 'Devin Playbook Sync'
+description: 'Scans a directory for Markdown files and syncs them as Devin playbooks using the Devin API'
+author: 'Sam Fertig (@samfert-codeium)'
+
+branding:
+  icon: 'book-open'
+  color: 'blue'
+
+inputs:
+  devin-api-key:
+    description: 'Devin API key for authentication. Can also be provided via DEVIN_API_KEY environment variable.'
+    required: true
+  
+  operation:
+    description: 'Operation to perform: sync, list, get, update, delete'
+    required: false
+    default: 'sync'
+  
+  directory:
+    description: 'Directory to scan for .md files (used with sync operation)'
+    required: false
+    default: '.'
+  
+  playbook-id:
+    description: 'Playbook ID (required for get, update, delete operations)'
+    required: false
+    default: ''
+  
+  playbook-title:
+    description: 'Title for the playbook (used with update operation)'
+    required: false
+    default: ''
+  
+  playbook-body:
+    description: 'Body/content for the playbook (used with update operation)'
+    required: false
+    default: ''
+  
+  playbook-macro:
+    description: 'Optional macro shortcut for the playbook (e.g., !deploy)'
+    required: false
+    default: ''
+  
+  api-base-url:
+    description: 'Base URL for the Devin API'
+    required: false
+    default: 'https://api.devin.ai'
+  
+  recursive:
+    description: 'Recursively scan subdirectories for .md files'
+    required: false
+    default: 'true'
+  
+  dry-run:
+    description: 'Run in dry-run mode without making actual API calls'
+    required: false
+    default: 'false'
+
+outputs:
+  playbook-ids:
+    description: 'Comma-separated list of created/updated playbook IDs'
+    value: ${{ steps.sync-playbooks.outputs.playbook-ids }}
+  
+  playbooks-count:
+    description: 'Number of playbooks processed'
+    value: ${{ steps.sync-playbooks.outputs.playbooks-count }}
+  
+  operation-result:
+    description: 'Result of the operation (JSON format)'
+    value: ${{ steps.sync-playbooks.outputs.operation-result }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        echo "::group::Validating inputs"
+        
+        if [ -z "${{ inputs.devin-api-key }}" ]; then
+          echo "::error::devin-api-key is required"
+          exit 1
+        fi
+        
+        OPERATION="${{ inputs.operation }}"
+        if [[ ! "$OPERATION" =~ ^(sync|list|get|update|delete)$ ]]; then
+          echo "::error::Invalid operation: $OPERATION. Must be one of: sync, list, get, update, delete"
+          exit 1
+        fi
+        
+        if [[ "$OPERATION" =~ ^(get|update|delete)$ ]] && [ -z "${{ inputs.playbook-id }}" ]; then
+          echo "::error::playbook-id is required for $OPERATION operation"
+          exit 1
+        fi
+        
+        if [[ "$OPERATION" == "update" ]] && [ -z "${{ inputs.playbook-title }}" ] && [ -z "${{ inputs.playbook-body }}" ]; then
+          echo "::error::Either playbook-title or playbook-body is required for update operation"
+          exit 1
+        fi
+        
+        echo "✓ All inputs validated successfully"
+        echo "::endgroup::"
+    
+    - name: Setup environment
+      shell: bash
+      run: |
+        echo "::group::Setting up environment"
+        
+        # Create output directory for temporary files
+        mkdir -p "${{ runner.temp }}/devin-playbooks"
+        
+        echo "✓ Environment setup complete"
+        echo "::endgroup::"
+    
+    - name: Sync playbooks
+      id: sync-playbooks
+      shell: bash
+      env:
+        DEVIN_API_KEY: ${{ inputs.devin-api-key }}
+        API_BASE_URL: ${{ inputs.api-base-url }}
+        OPERATION: ${{ inputs.operation }}
+        DIRECTORY: ${{ inputs.directory }}
+        PLAYBOOK_ID: ${{ inputs.playbook-id }}
+        PLAYBOOK_TITLE: ${{ inputs.playbook-title }}
+        PLAYBOOK_BODY: ${{ inputs.playbook-body }}
+        PLAYBOOK_MACRO: ${{ inputs.playbook-macro }}
+        RECURSIVE: ${{ inputs.recursive }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        TEMP_DIR: ${{ runner.temp }}/devin-playbooks
+      run: |
+        # Source the main script
+        "${{ github.action_path }}/scripts/sync-playbooks.sh"

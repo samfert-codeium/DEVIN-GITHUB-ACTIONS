@@ -4,6 +4,36 @@ A collection of GitHub Actions for integrating with the Devin API.
 
 ## Available Actions
 
+### Playbook Sync Action (Root)
+
+A GitHub Action that scans directories for Markdown files and syncs them as Devin playbooks using the Devin API. Supports all Devin playbook operations including create, list, get, update, and delete.
+
+📖 **Documentation**: See below for detailed usage instructions
+
+🚀 **Quick Start**:
+
+```yaml
+- name: Sync playbooks to Devin
+  uses: samfert-codeium/DEVIN-GITHUB-ACTIONS@v1
+  with:
+    devin-api-key: ${{ secrets.DEVIN_API_KEY }}
+    directory: './playbooks'
+    operation: 'sync'
+```
+
+**Features:**
+- 📁 Automatic discovery of `.md` files
+- 🔄 Full API support for all 5 playbook operations (create, list, get, update, delete)
+- 🧪 Dry run mode for testing
+- 📊 Detailed outputs with playbook IDs and counts
+
+**Supported Operations:**
+- `sync` - Scan directory and create playbooks from `.md` files
+- `list` - List all team playbooks
+- `get` - Retrieve a specific playbook
+- `update` - Update an existing playbook
+- `delete` - Delete a playbook
+
 ### Devin API Action
 
 A comprehensive GitHub Action for interacting with the Devin API to create and manage Devin sessions programmatically from your GitHub workflows.
@@ -26,8 +56,7 @@ A comprehensive GitHub Action for interacting with the Devin API to create and m
     tags: 'bug-fix,automated'
 ```
 
-### Features
-
+**Features:**
 - **Session Management**: Create sessions, send messages, get status, list sessions
 - **File Operations**: Upload files to sessions
 - **Tagging**: Update session tags
@@ -35,14 +64,16 @@ A comprehensive GitHub Action for interacting with the Devin API to create and m
 - **Knowledge Management**: Manage knowledge base entries
 - **Playbooks Management**: Create and manage playbooks
 
-### Prerequisites
+## Prerequisites
 
 1. Get a Devin API key from your [Devin settings page](https://app.devin.ai/settings)
 2. Store it as a GitHub secret (recommended name: `DEVIN_API_KEY`)
 
-### Examples
+## Examples
 
-See [devin-action/examples/](./devin-action/examples/) for complete workflow examples.
+See [devin-action/examples/](./devin-action/examples/) for Devin API Action workflow examples.
+
+See [test-playbooks/](./test-playbooks/) for example playbook markdown files.
 
 ## Contributing
 
@@ -56,4 +87,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-Apache-2.0
+- Playbook Sync Action: MIT License - see [LICENSE](./LICENSE)
+- Devin API Action: Apache-2.0
