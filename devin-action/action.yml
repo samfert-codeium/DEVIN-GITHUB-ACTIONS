@@ -8,7 +8,7 @@ branding:
 
 inputs:
   action:
-    description: 'The API action to perform (create-session, send-message, get-session, list-sessions, upload-files, update-tags, list-secrets, create-secret, delete-secret, list-knowledge, create-knowledge, update-knowledge, delete-knowledge, list-playbooks, create-playbook, get-playbook, update-playbook, delete-playbook)'
+    description: 'The API action to perform (create-session, send-message, get-session, list-sessions, upload-files, update-tags, list-secrets, create-secret, delete-secret, list-knowledge, create-knowledge, update-knowledge, delete-knowledge, list-playbooks, create-playbook, get-playbook, update-playbook, delete-playbook, download-attachment-files)'
     required: true
   
   api-key:
@@ -100,6 +100,14 @@ inputs:
   playbook-content:
     description: 'Playbook content (for create-playbook, update-playbook)'
     required: false
+  
+  attachment-uuid:
+    description: 'Attachment UUID (required for download-attachment-files)'
+    required: false
+  
+  attachment-name:
+    description: 'Attachment filename (required for download-attachment-files)'
+    required: false
 
 outputs:
   session-id:
@@ -148,4 +156,6 @@ runs:
           "${{ inputs.knowledge-content }}" \
           "${{ inputs.playbook-id }}" \
           "${{ inputs.playbook-name }}" \
-          "${{ inputs.playbook-content }}"
+          "${{ inputs.playbook-content }}" \
+          "${{ inputs.attachment-uuid }}" \
+          "${{ inputs.attachment-name }}"
