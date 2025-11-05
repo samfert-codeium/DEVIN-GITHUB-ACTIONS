@@ -25,6 +25,8 @@ KNOWLEDGE_CONTENT="${20}"
 PLAYBOOK_ID="${21}"
 PLAYBOOK_NAME="${22}"
 PLAYBOOK_CONTENT="${23}"
+ATTACHMENT_UUID="${24}"
+ATTACHMENT_NAME="${25}"
 
 BASE_URL="https://api.devin.ai/v1"
 
@@ -341,6 +343,32 @@ function delete_playbook() {
     echo "response=${response}" >> $GITHUB_OUTPUT
 }
 
+function download_attachment_files() {
+    if [ -z "$ATTACHMENT_UUID" ] || [ -z "$ATTACHMENT_NAME" ]; then
+        echo "Error: attachment-uuid and attachment-name are required for download-attachment-files action"
+        exit 1
+    fi
+    
+    response=$(curl -s -L -X GET "${BASE_URL}/attachments/${ATTACHMENT_UUID}/${ATTACHMENT_NAME}" \
+        -H "Authorization: Bearer ${API_KEY}" \
+        -w "\n%{http_code}")
+    
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+    
+    if [ "$http_code" = "200" ] || [ "$http_code" = "307" ]; then
+        echo "${body}"
+        echo "response=${body}" >> $GITHUB_OUTPUT
+        echo "http-code=${http_code}" >> $GITHUB_OUTPUT
+    else
+        echo "Error: Failed to download attachment. HTTP code: ${http_code}"
+        echo "${body}"
+        echo "response=${body}" >> $GITHUB_OUTPUT
+        echo "http-code=${http_code}" >> $GITHUB_OUTPUT
+        exit 1
+    fi
+}
+
 case "$ACTION" in
     create-session)
         create_session
@@ -396,9 +424,12 @@ case "$ACTION" in
     delete-playbook)
         delete_playbook
         ;;
+    download-attachment-files)
+        download_attachment_files
+        ;;
     *)
         echo "Error: Unknown action '${ACTION}'"
-        echo "Valid actions: create-session, send-message, get-session, list-sessions, upload-files, update-tags, list-secrets, create-secret, delete-secret, list-knowledge, create-knowledge, update-knowledge, delete-knowledge, list-playbooks, create-playbook, get-playbook, update-playbook, delete-playbook"
+        echo "Valid actions: create-session, send-message, get-session, list-sessions, upload-files, update-tags, list-secrets, create-secret, delete-secret, list-knowledge, create-knowledge, update-knowledge, delete-knowledge, list-playbooks, create-playbook, get-playbook, update-playbook, delete-playbook, download-attachment-files"
         exit 1
         ;;
 esac

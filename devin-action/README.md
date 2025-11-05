@@ -6,7 +6,7 @@ A comprehensive GitHub Action for interacting with the Devin API to create and m
 
 This action supports all Devin API functionalities:
 
-- **Session Management**: Create sessions, send messages, get session details, list sessions, upload files, update tags
+- **Session Management**: Create sessions, send messages, get session details, list sessions, upload files, download attachment files, update tags
 - **Secrets Management**: List, create, and delete secrets
 - **Knowledge Management**: List, create, update, and delete knowledge
 - **Playbooks Management**: List, create, get, update, and delete playbooks
@@ -128,6 +128,23 @@ Before using this action, you need:
     tags: 'completed,reviewed,deployed'
 ```
 
+#### Download Attachment Files
+
+```yaml
+- name: Download Attachment from Session
+  uses: samfert-codeium/DEVIN-GITHUB-ACTIONS/devin-action@main
+  id: download-attachment
+  with:
+    action: 'download-attachment-files'
+    api-key: ${{ secrets.DEVIN_API_KEY }}
+    attachment-uuid: 'uuid_123456'
+    attachment-name: 'report.pdf'
+
+- name: Save Attachment
+  run: |
+    echo "${{ steps.download-attachment.outputs.response }}" > report.pdf
+```
+
 ### Secrets Management
 
 #### List Secrets
@@ -232,6 +249,8 @@ Before using this action, you need:
 | `playbook-id` | Playbook ID | For playbook operations | - |
 | `playbook-name` | Playbook name | For playbook operations | - |
 | `playbook-content` | Playbook content | For playbook operations | - |
+| `attachment-uuid` | Attachment UUID | For `download-attachment-files` | - |
+| `attachment-name` | Attachment filename | For `download-attachment-files` | - |
 
 ## Outputs
 
@@ -249,6 +268,7 @@ Before using this action, you need:
 - `get-session` - Get details about a session
 - `list-sessions` - List all sessions
 - `upload-files` - Upload files to a session
+- `download-attachment-files` - Download attachment files from a session
 - `update-tags` - Update session tags
 - `list-secrets` - List all secrets
 - `create-secret` - Create a new secret
