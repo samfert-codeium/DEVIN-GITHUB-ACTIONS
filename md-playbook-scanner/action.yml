@@ -1,0 +1,41 @@
+name: 'Devin Playbook Scanner'
+description: 'Scans a directory for Markdown files and creates Devin playbooks from them'
+author: 'Sam Fertig (@samfert-codeium)'
+
+branding:
+  icon: 'book-open'
+  color: 'purple'
+
+inputs:
+  directory:
+    description: 'Directory path to scan for .md files (relative to repository root or absolute path)'
+    required: true
+  
+  api-key:
+    description: 'Devin API key for authentication. Should be stored as a secret (e.g., secrets.DEVIN_API_KEY)'
+    required: true
+
+outputs:
+  playbooks-created:
+    description: 'Number of playbooks successfully created'
+    value: ${{ steps.scan.outputs.playbooks-created }}
+  
+  playbooks-failed:
+    description: 'Number of playbooks that failed to create'
+    value: ${{ steps.scan.outputs.playbooks-failed }}
+  
+  playbook-ids:
+    description: 'JSON array of created playbook IDs'
+    value: ${{ steps.scan.outputs.playbook-ids }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Scan and Create Playbooks
+      id: scan
+      shell: bash
+      run: |
+        chmod +x "${{ github.action_path }}/scripts/scan-and-create.sh"
+        "${{ github.action_path }}/scripts/scan-and-create.sh" \
+          "${{ inputs.directory }}" \
+          "${{ inputs.api-key }}"

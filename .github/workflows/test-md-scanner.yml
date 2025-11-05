@@ -1,0 +1,89 @@
+name: Test MD Playbook Scanner
+
+on:
+  pull_request:
+    paths:
+      - 'md-playbook-scanner/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'md-playbook-scanner/**'
+  workflow_dispatch:
+
+jobs:
+  test-scanner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create test playbooks
+        run: |
+          mkdir -p test-playbooks/subfolder
+          cat > test-playbooks/deployment.md << 'EOF'
+          # Deployment Playbook
+          
+          Deploy the application to production with the following steps:
+          
+          1. Run tests
+          2. Build the application
+          3. Deploy to production
+          4. Verify deployment
+          EOF
+          
+          cat > test-playbooks/code-review.md << 'EOF'
+          # Code Review Playbook
+          
+          Review code changes with the following checklist:
+          
+          - Check code quality
+          - Verify tests are included
+          - Review security implications
+          - Check documentation
+          EOF
+          
+          cat > test-playbooks/subfolder/nested.md << 'EOF'
+          # Nested Test Playbook
+          
+          This is a playbook in a subdirectory to test recursive scanning.
+          EOF
+      
+      - name: Run MD Playbook Scanner
+        id: scanner
+        uses: ./md-playbook-scanner
+        with:
+          directory: './test-playbooks'
+          api-key: ${{ secrets.DEVIN_API_KEY }}
+      
+      - name: Verify outputs
+        run: |
+          echo "Playbooks created: ${{ steps.scanner.outputs.playbooks-created }}"
+          echo "Playbooks failed: ${{ steps.scanner.outputs.playbooks-failed }}"
+          echo "Playbook IDs: ${{ steps.scanner.outputs.playbook-ids }}"
+          
+          if [ "${{ steps.scanner.outputs.playbooks-created }}" -lt 3 ]; then
+            echo "❌ Error: Expected at least 3 playbooks created, got ${{ steps.scanner.outputs.playbooks-created }}"
+            exit 1
+          fi
+          
+          if [ "${{ steps.scanner.outputs.playbooks-failed }}" -gt 0 ]; then
+            echo "❌ Error: Some playbooks failed to create: ${{ steps.scanner.outputs.playbooks-failed }}"
+            exit 1
+          fi
+          
+          echo "✅ All tests passed!"
+      
+      - name: Test with non-existent directory (should fail)
+        id: test-invalid
+        continue-on-error: true
+        uses: ./md-playbook-scanner
+        with:
+          directory: './non-existent-directory'
+          api-key: ${{ secrets.DEVIN_API_KEY }}
+      
+      - name: Verify error handling
+        if: steps.test-invalid.outcome != 'failure'
+        run: |
+          echo "❌ Error: Action should have failed with non-existent directory"
+          exit 1

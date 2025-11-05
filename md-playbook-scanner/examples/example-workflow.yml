@@ -1,0 +1,72 @@
+name: Create Devin Playbooks from Markdown
+
+on:
+  # Trigger when markdown files in playbooks directory change
+  push:
+    branches: [main]
+    paths:
+      - 'playbooks/**/*.md'
+  
+  # Trigger on new releases
+  release:
+    types: [published]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      directory:
+        description: 'Directory to scan for playbooks'
+        required: true
+        default: './playbooks'
+      dry-run:
+        description: 'Dry run (do not create playbooks)'
+        required: false
+        default: 'false'
+
+jobs:
+  create-playbooks:
+    name: Scan and Create Playbooks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Scan and create playbooks
+        id: scanner
+        uses: samfert-codeium/DEVIN-GITHUB-ACTIONS/md-playbook-scanner@v1
+        with:
+          directory: ${{ github.event.inputs.directory || './playbooks' }}
+          api-key: ${{ secrets.DEVIN_API_KEY }}
+      
+      - name: Display summary
+        run: |
+          echo "## Playbook Creation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Created**: ${{ steps.scanner.outputs.playbooks-created }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ **Failed**: ${{ steps.scanner.outputs.playbooks-failed }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.scanner.outputs.playbooks-created }}" -gt 0 ]; then
+            echo "### Created Playbook IDs" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            echo '${{ steps.scanner.outputs.playbook-ids }}' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Notify on success
+        if: steps.scanner.outputs.playbooks-created > 0 && steps.scanner.outputs.playbooks-failed == 0
+        run: |
+          echo "✅ Successfully created ${{ steps.scanner.outputs.playbooks-created }} playbooks!"
+      
+      - name: Notify on partial failure
+        if: steps.scanner.outputs.playbooks-created > 0 && steps.scanner.outputs.playbooks-failed > 0
+        run: |
+          echo "⚠️ Created ${{ steps.scanner.outputs.playbooks-created }} playbooks, but ${{ steps.scanner.outputs.playbooks-failed }} failed"
+          exit 1
+      
+      - name: Notify on complete failure
+        if: steps.scanner.outputs.playbooks-created == 0 && steps.scanner.outputs.playbooks-failed > 0
+        run: |
+          echo "❌ Failed to create any playbooks. All ${{ steps.scanner.outputs.playbooks-failed }} attempts failed"
+          exit 1
