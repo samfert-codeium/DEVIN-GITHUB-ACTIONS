@@ -1,30 +1,61 @@
+# =============================================================================
+# Example Devin Workflow
+# =============================================================================
+# This workflow demonstrates how to use the Devin API GitHub Action to create
+# and interact with Devin sessions from your CI/CD pipeline.
+#
+# PREREQUISITES:
+#   1. A Devin API key stored as a GitHub secret named DEVIN_API_KEY
+#   2. GitHub Actions enabled on your repository
+#
+# USAGE:
+#   1. Go to the "Actions" tab in your GitHub repository
+#   2. Select "Example Devin Workflow" from the left sidebar
+#   3. Click "Run workflow"
+#   4. Enter a task description and click "Run workflow"
+#
+# The workflow will create a Devin session with your task and display
+# the session URL where you can monitor Devin's progress.
+# =============================================================================
+
 name: Example Devin Workflow
 
+# Trigger: Manual workflow dispatch with custom input
+# This allows you to run the workflow on-demand from the GitHub UI
 on:
   workflow_dispatch:
     inputs:
       task:
+        # The task description that will be sent to Devin as the prompt
         description: 'Task for Devin to perform'
         required: true
         default: 'Review the codebase and suggest improvements'
 
 jobs:
   run-devin:
+    # Use the latest Ubuntu runner provided by GitHub
     runs-on: ubuntu-latest
+    
     steps:
+      # Step 1: Checkout the repository code
+      # This makes the repository files available to subsequent steps
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Step 2: Create a new Devin session
+      # This step calls the Devin API to create a session with the specified task
       - name: Create Devin Session
         uses: samfert-codeium/DEVIN-GITHUB-ACTIONS/devin-action@main
-        id: devin-session
+        id: devin-session  # ID used to reference outputs in later steps
         with:
-          action: 'create-session'
-          api-key: ${{ secrets.DEVIN_API_KEY }}
-          prompt: ${{ github.event.inputs.task }}
-          title: 'GitHub Actions Session - ${{ github.run_number }}'
-          tags: 'github-actions,automated'
+          action: 'create-session'  # The API action to perform
+          api-key: ${{ secrets.DEVIN_API_KEY }}  # API key from repository secrets
+          prompt: ${{ github.event.inputs.task }}  # Task from workflow input
+          title: 'GitHub Actions Session - ${{ github.run_number }}'  # Unique title with run number
+          tags: 'github-actions,automated'  # Tags for categorization
 
+      # Step 3: Display session information
+      # Outputs the session details to the workflow logs for easy access
       - name: Display Session Information
         run: |
           echo "Devin session created successfully!"
@@ -33,10 +64,12 @@ jobs:
           echo ""
           echo "You can monitor the session at the URL above."
 
+      # Step 4: Send additional context to the session
+      # Demonstrates how to send follow-up messages to an existing session
       - name: Send Additional Context
         uses: samfert-codeium/DEVIN-GITHUB-ACTIONS/devin-action@main
         with:
-          action: 'send-message'
+          action: 'send-message'  # Send a message to existing session
           api-key: ${{ secrets.DEVIN_API_KEY }}
-          session-id: ${{ steps.devin-session.outputs.session-id }}
+          session-id: ${{ steps.devin-session.outputs.session-id }}  # Reference the session created above
           message: 'This session was triggered from GitHub Actions workflow run ${{ github.run_number }}'
